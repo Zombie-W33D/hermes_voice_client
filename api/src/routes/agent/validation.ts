@@ -21,6 +21,11 @@ export default {
 
   id: validate([param('id').isInt().withMessage('Incorrect request url')]),
 
+  voice: validate([
+    param('id').isInt().withMessage('Incorrect request url'),
+    body('voice').isString().notEmpty().withMessage('Voice is required'),
+  ]),
+
   create: validate([
     body('name')
       .notEmpty()

@@ -302,6 +302,39 @@ const gatewayStart = runGatewayOp((profile) => hermes.startProfileGateway(profil
 const gatewayStop = runGatewayOp(async (profile) => hermes.stopProfileGateway(profile));
 const gatewayRestart = runGatewayOp((profile) => hermes.restartProfileGateway(profile));
 
+/** `GET /api/voices` — every voice the free edge endpoint can actually synthesize. */
+const listVoices: RequestHandler = (_req, res) => {
+  res.json({ ok: true, voices: hermes.listTtsVoices() });
+};
+
+/** Get the agent's current TTS voice (from its profile config). */
+const getAgentVoice: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent) return res.status(404).json({ ok: false, error: 'Agent not found' });
+    const result = hermes.getAgentVoice(agent.hermesProfile);
+    if (!result.ok) return res.status(500).json({ ok: false, error: result.error });
+    return res.json({ ok: true, voice: result.voice ?? null });
+  } catch (error) {
+    return next(error);
+  }
+};
+
+/** Set the agent's TTS voice in its profile config. */
+const setAgentVoice: RequestHandler = async (req, res, next) => {
+  try {
+    const agentRepo = AppDataSource.getRepository(Agent);
+    const agent = await agentRepo.findOneBy({ _id: Number(req.params.id) });
+    if (!agent) return res.status(404).json({ ok: false, error: 'Agent not found' });
+    const result = hermes.setAgentVoice(agent.hermesProfile, req.body.voice);
+    if (!result.ok) return res.status(400).json({ ok: false, error: result.error });
+    return res.json({ ok: true, voice: result.voice });
+  } catch (error) {
+    return next(error);
+  }
+};
+
 export {
   list,
   get,
@@ -314,4 +347,7 @@ export {
   gatewayStart,
   gatewayStop,
   gatewayRestart,
+  listVoices,
+  getAgentVoice,
+  setAgentVoice,
 };

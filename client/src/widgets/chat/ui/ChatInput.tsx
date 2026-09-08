@@ -1,5 +1,14 @@
 import { useState, useRef, useCallback } from 'react';
-import { Box, TextField, IconButton, Chip } from '@mui/material';
+import {
+  Box,
+  TextField,
+  IconButton,
+  Chip,
+  Popover,
+  Autocomplete,
+  Typography,
+  ListSubheader,
+} from '@mui/material';
 import {
   Send,
   AttachFile,
@@ -8,16 +17,25 @@ import {
   ImageOutlined,
   VolumeUp,
   VolumeOff,
+  RecordVoiceOver,
 } from '@mui/icons-material';
+import { useAgentVoice, type TtsVoice } from '../../../features/voice/model/useAgentVoice';
 
 interface ChatInputProps {
+  agentId: string;
   onSend: (text: string, files: File[]) => Promise<void>;
   isStreaming: boolean;
   speakRepliesEnabled: boolean;
   onToggleSpeakReplies: () => void;
 }
 
+function voiceLabel(v: TtsVoice): string {
+  const gender = v.gender?.toLowerCase() === 'female' ? '♀' : v.gender?.toLowerCase() === 'male' ? '♂' : '';
+  return `${gender} ${v.voice}`.trim();
+}
+
 export default function ChatInput({
+  agentId,
   onSend,
   isStreaming,
   speakRepliesEnabled,
@@ -25,8 +43,13 @@ export default function ChatInput({
 }: ChatInputProps) {
   const [text, setText] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
+  const [voiceAnchor, setVoiceAnchor] = useState<HTMLElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const voice = useAgentVoice(agentId);
+
+  const voiceOptions = voice.catalogue.map((v) => v.voice);
+  const currentVoice = voice.current;
 
   const handleTextChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => setText(e.target.value),
@@ -57,6 +80,12 @@ export default function ChatInput({
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleVoicePick = async (next: string | null) => {
+    if (!next || next === currentVoice) return;
+    const ok = await voice.setVoice(next);
+    if (ok) setVoiceAnchor(null);
   };
 
   return (
@@ -125,6 +154,72 @@ export default function ChatInput({
         >
           {speakRepliesEnabled ? <VolumeUp sx={{ fontSize: 18 }} /> : <VolumeOff sx={{ fontSize: 18 }} />}
         </IconButton>
+        <IconButton
+          onClick={(e) => setVoiceAnchor(e.currentTarget)}
+          size="small"
+          sx={{
+            mr: 0.5,
+            color: voiceAnchor ? 'primary.main' : 'text.secondary',
+            '&:hover': { color: 'primary.main' },
+          }}
+          title={`Voice: ${currentVoice ?? 'agent default'}${voice.saving ? ' (saving…)' : ''}`}
+        >
+          <RecordVoiceOver sx={{ fontSize: 18 }} />
+        </IconButton>
+        <Popover
+          open={Boolean(voiceAnchor)}
+          anchorEl={voiceAnchor}
+          onClose={() => setVoiceAnchor(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'left' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+          sx={{ '& .MuiPaper-root': { width: 360, maxWidth: '90vw', p: 1 } }}
+        >
+          {voice.error && (
+            <Typography color="error" variant="caption" sx={{ px: 1, pb: 0.5, display: 'block' }}>
+              {voice.error}
+            </Typography>
+          )}
+          <Autocomplete
+            size="small"
+            options={voiceOptions}
+            value={currentVoice ?? null}
+            noOptionsText={voice.loading ? 'Loading voices…' : 'No voices found'}
+            groupBy={(opt) => {
+              const v = voice.catalogue.find((c) => c.voice === opt);
+              return v?.localeName || '…';
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                autoFocus
+                label="Agent voice"
+                placeholder="Search voice…"
+                size="small"
+              />
+            )}
+            renderGroup={(params) => (
+              <Box key={params.key}>
+                <ListSubheader sx={{ fontSize: '0.7rem', lineHeight: '24px', bgcolor: 'background.paper' }}>
+                  {params.group}
+                </ListSubheader>
+                {params.children}
+              </Box>
+            )}
+            renderOption={(props, opt) => {
+              const v = voice.catalogue.find((c) => c.voice === opt);
+              return (
+                <Box component="li" {...props} key={opt} sx={{ fontSize: '0.8rem' }}>
+                  {v ? voiceLabel(v) : opt}
+                </Box>
+              );
+            }}
+            onChange={(_e, next) => void handleVoicePick(next)}
+          />
+          <Typography variant="caption" sx={{ px: 1, pt: 1, display: 'block', opacity: 0.6 }}>
+            {voice.loading && 'Loading… '}
+            {!voice.loading && `${voice.catalogue.length} voices available to the free endpoint.`}
+          </Typography>
+        </Popover>
         <TextField
           inputRef={inputRef}
           fullWidth

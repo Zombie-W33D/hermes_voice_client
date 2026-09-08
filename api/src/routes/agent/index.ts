@@ -12,6 +12,14 @@ router
 
 router.route('/agent/sync').post(auth, controller.sync);
 
+router.route('/voices').get(auth, controller.listVoices);
+
+router.route('/agent/:id(\\d+)/voice').get(auth, validate.id, controller.getAgentVoice);
+
+router
+  .route('/agent/:id(\\d+)/voice')
+  .put(auth, validate.voice, controller.setAgentVoice);
+
 router
   .route('/agent/:id(\\d+)/conversation/:conversationId(\\d+)/session-settings')
   .get(auth, controller.getSessionSettings)

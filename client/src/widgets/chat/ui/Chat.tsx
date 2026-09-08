@@ -41,6 +41,7 @@ export default function Chat({ agentId, conversationId }: ChatProps) {
       )}
       <MessageList chat={chat} />
       <ChatInput
+        agentId={agentId}
         onSend={chat.send}
         isStreaming={chat.isStreaming}
         speakRepliesEnabled={chat.speakRepliesEnabled}
