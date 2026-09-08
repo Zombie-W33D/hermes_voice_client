@@ -1,10 +1,12 @@
 # Hermes Client
 
+> **What this fork changes:** adds **speak-back voice** — a platform-independent way to *hear* agent responses. Finished reply text is synthesized through the agent's own Hermes profile TTS (`POST /api/message/speak`) into a base64 audio data URL, and the recording is auto-played on the **triggering instance only**. No audio files are persisted (the temp MP3 is deleted server-side once streamed), no other device/session ever triggers synthesis, and it's **off by default & per-agent** (use the volume toggle next to the input in that agent's chat).
+
+> **Rest of file mostly identical to the original** — for all other features, setup, and usage, the original by Nous Research / [lotsoftick/hermes_client](https://github.com/lotsoftick/hermes_client) is the true source of information.
+
 A web-based chat interface for the [Hermes Agent](https://hermes-agent.nousresearch.com/) by Nous Research. Manage multiple Hermes profiles as separate "agents", run conversations with full streaming, and configure cron jobs, skills, and plugins — all through a clean modern UI.
 
 https://github.com/user-attachments/assets/88351710-65c9-4052-bdca-7be3d788b7f0
-
-> **Fork notice** — this repository is a fork of [lotsoftick/hermes_client](https://github.com/lotsoftick/hermes_client), which remains the true source of this codebase. Speak-back voice support, described below, is the only addition over upstream; all other functionality and credit belongs to the original author (copyright © 2026 Davit Hakobyan, MIT License).
 
 ## Features
 
