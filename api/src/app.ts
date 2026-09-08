@@ -15,6 +15,7 @@ import routes from './routes';
 import seedAdminUser from './seed';
 import AppDataSource from './data-source';
 import { isHermesAvailable, HERMES_BIN } from './services/hermes';
+import { startAudioCacheSweeper } from './services/hermes/audioCache';
 import { startUpdateChecker } from './services/updateService';
 import { attachPtyWebSocket } from './services/pty';
 
@@ -56,6 +57,7 @@ const PORT = Number(process.env.PORT) || 18889;
     attachPtyWebSocket(server);
     server.listen(PORT, () => console.log(colors.green(`running on port ${PORT}`)));
     startUpdateChecker();
+    startAudioCacheSweeper();
   } catch (error) {
     console.log(colors.red('%s'), error);
   }
