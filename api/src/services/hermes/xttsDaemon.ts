@@ -19,8 +19,30 @@ let buf = '';
 const queue: Array<{ resolve: (v: { ok: boolean; out?: string; error?: string }) => void }> = [];
 let spawnPromise: Promise<ChildProcess> | null = null;
 let spawnTries = 0;
+let idleTimer: NodeJS.Timeout | null = null;
 const MAX_SPAWN_TRIES = 3;
 const REQUEST_TIMEOUT_MS = 180_000;
+const DEFAULT_IDLE_TIMEOUT_MS = 30 * 60 * 1000; // evict the warm model after 30 min of silence
+
+function idleTimeoutMs(): number {
+  const v = Number(process.env.HERMES_XTTS_IDLE_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : DEFAULT_IDLE_TIMEOUT_MS;
+}
+
+/** Restart the "kill the warm daemon" countdown on any activity. */
+function armIdleKill(): void {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    console.error('[xtts] idle timeout reached; shutting down warm daemon');
+    if (child) {
+      try {
+        child.kill('SIGTERM');
+      } catch {
+        /* ignore */
+      }
+    }
+  }, idleTimeoutMs());
+}
 
 function venvPython(): string {
   return path.join(HERMES_HOME, 'hermes-agent', 'venv', 'bin', 'python');
@@ -82,6 +104,10 @@ function spawnDaemon(): Promise<ChildProcess> {
     });
     p.on('exit', (code, signal) => {
       console.error(`[xtts] daemon exited${signal ? ` (${signal})` : ` (code ${code})`}`);
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
       const errResp = { ok: false as const, error: 'XTTS daemon exited' };
       while (queue.length) {
         const entry = queue.shift();
@@ -142,6 +168,9 @@ export async function xttsSynthesize(text: string, refWav: string): Promise<Xtts
     queue.push({
       resolve: (resp) => {
         clearTimeout(timer);
+        // Count "silence" from the last completed request, so the idle
+        // countdown never fires while the daemon is still cold-loading.
+        armIdleKill();
         if (resp.ok && resp.out) {
           resolve({ ok: true as const, out: resp.out! });
         } else {
@@ -161,6 +190,10 @@ export async function xttsSynthesize(text: string, refWav: string): Promise<Xtts
 
 /** Best-effort shutdown of the daemon (e.g. on process exit). */
 export function shutdownXtTSDaemon(): void {
+  if (idleTimer) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
   if (child) {
     try {
       child.kill('SIGTERM');
