@@ -373,6 +373,16 @@ const speak: RequestHandler<never, unknown, { conversationId?: string; text?: st
       const agent = await agentRepo.findOneBy({ _id: conv.agentId });
       const profile = agent?.hermesProfile || 'default';
 
+      // If the agent's configured voice is a locally-registered XTTS clone,
+      // synthesize through the custom (Coqui) path instead of edge.
+      const voice = hermes.getAgentVoice(profile);
+      if (voice && voice.voice && hermes.isCustomVoice(voice.voice)) {
+        const refWav = hermes.customVoiceRef(voice.voice);
+        const custom = await hermes.synthesizeCustomSpeechToDataUrl(text || '', refWav);
+        if (!custom.ok) return res.status(502).json({ error: custom.error });
+        return res.json(custom);
+      }
+
       const result = await hermes.synthesizeSpeechToDataUrl(text || '', profile);
       if (!result.ok) return res.status(502).json({ error: result.error });
       return res.json(result);

@@ -16,6 +16,7 @@ import seedAdminUser from './seed';
 import AppDataSource from './data-source';
 import { isHermesAvailable, HERMES_BIN } from './services/hermes';
 import { startAudioCacheSweeper } from './services/hermes/audioCache';
+import { shutdownXtTSDaemon } from './services/hermes/xttsDaemon';
 import { startUpdateChecker } from './services/updateService';
 import { attachPtyWebSocket } from './services/pty';
 
@@ -58,6 +59,13 @@ const PORT = Number(process.env.PORT) || 18889;
     server.listen(PORT, () => console.log(colors.green(`running on port ${PORT}`)));
     startUpdateChecker();
     startAudioCacheSweeper();
+
+    const shutdown = () => {
+      shutdownXtTSDaemon();
+      process.exit(0);
+    };
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
   } catch (error) {
     console.log(colors.red('%s'), error);
   }

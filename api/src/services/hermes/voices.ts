@@ -1,21 +1,24 @@
 /* eslint-disable no-console */
 import { execFileSync } from 'child_process';
+import fs from 'fs';
 import path from 'path';
 import { HERMES_HOME, HERMES_BIN } from './paths';
 
 /**
- * Available TTS voices. `edge-tts` (the free endpoint) only exposes a subset
- * of the paid Azure catalog, so the client must pick from what this list
- * actually contains — paired with the same Python interpreter the agent venv
- * uses. Cached for a while because the edge endpoint round-trips to Microsoft.
+ * Available TTS voices.
+ * - `edge-tts` voices (the free endpoint) — enumerated once and cached.
+ * - custom XTTS voices — cloned from a reference audio sample, stored under
+ *   `~/.hermes/client_voices/<name>/`.
  */
 export interface TtsVoice {
-  /** ShortName, e.g. "en-AU-NatashaNeural" — the value for config set. */
+  /** ShortName, e.g. "en-AU-NatashaNeural", or a custom voice name. */
   voice: string;
   gender: 'Female' | 'Male' | string;
   locale: string;
   localeName: string;
   friendlyName: string;
+  /** true for locally-registered XTTS clones. */
+  custom?: boolean;
 }
 
 const VOICE_CACHE_MS = 12 * 60 * 60 * 1000;
@@ -29,13 +32,51 @@ function venvPython(): string {
   return path.join(agentRoot(), 'venv', 'bin', 'python');
 }
 
+/** Custom voices live here; each <name>/ holds ref.wav (+ optional ref.txt). */
+export function customVoicesDir(): string {
+  return path.join(HERMES_HOME, 'client_voices');
+}
+
+export function customVoiceRef(name: string): string {
+  return path.join(customVoicesDir(), name, 'ref.wav');
+}
+
+export function customVoiceRefText(name: string): string {
+  return path.join(customVoicesDir(), name, 'ref.txt');
+}
+
 function profileArg(profile: string | null | undefined): string | null {
   const p = !profile || profile === 'default' ? null : profile;
   return p;
 }
 
+/** Enumerate locally-registered XTTS custom voices. */
+export function listCustomVoices(): TtsVoice[] {
+  const dir = customVoicesDir();
+  const voices: TtsVoice[] = [];
+  if (!fs.existsSync(dir)) return voices;
+  let entries: string[] = [];
+  try {
+    entries = fs.readdirSync(dir);
+  } catch {
+    return voices;
+  }
+  entries.forEach((name) => {
+    if (!fs.existsSync(customVoiceRef(name))) return;
+    voices.push({
+      voice: name,
+      gender: '',
+      locale: 'custom',
+      localeName: 'Custom (XTTS clone)',
+      friendlyName: `${name} (custom voice)`,
+      custom: true,
+    });
+  });
+  return voices.sort((a, b) => a.voice.localeCompare(b.voice));
+}
+
 /** Enumerate the voices the edge endpoint exposes right now. Never throws. */
-export function listTtsVoices(): TtsVoice[] {
+function listEdgeVoices(): TtsVoice[] {
   if (voiceCache && Date.now() - voiceCache.at < VOICE_CACHE_MS) return voiceCache.voices;
 
   let voices: TtsVoice[] = [];
@@ -79,8 +120,32 @@ print(json.dumps([
   return voices;
 }
 
+/** Edge + custom voices. */
+export function listTtsVoices(): TtsVoice[] {
+  return [...listEdgeVoices(), ...listCustomVoices()];
+}
+
 export function voiceInCatalog(voice: string): boolean {
   return listTtsVoices().some((v) => v.voice === voice);
+}
+
+/** Is this a locally-registered XTTS custom voice? */
+export function isCustomVoice(voice: string): boolean {
+  return listCustomVoices().some((v) => v.voice === voice);
+}
+
+/** Register a custom voice from a reference audio sample. */
+export function registerCustomVoice(
+  name: string,
+  refWav: string
+): { ok: boolean; voice?: string; error?: string } {
+  const safe = path.basename(name).replace(/[^A-Za-z0-9 ._-]/g, '').trim() || 'voice';
+  if (!fs.existsSync(refWav)) return { ok: false, error: `Reference audio not found: ${refWav}` };
+  const dir = path.join(customVoicesDir(), safe);
+  fs.mkdirSync(dir, { recursive: true });
+  const dest = customVoiceRef(safe);
+  fs.copyFileSync(refWav, dest);
+  return { ok: true, voice: safe };
 }
 
 function runHermesConfig(
@@ -107,7 +172,7 @@ function runHermesConfig(
   }
 }
 
-/** Current edge voice for a profile; undefined when the profile isn't configured. */
+/** Current voice for a profile; undefined when the profile isn't configured. */
 export function getAgentVoice(profile: string | null | undefined): {
   ok: boolean;
   voice?: string;
@@ -130,5 +195,5 @@ export function setAgentVoice(
   const res = runHermesConfig(profile, ['set', 'tts.edge.voice', voice]);
   if (!res.ok) return { ok: false, error: res.stderr || res.stdout || 'write failed' };
   const written = res.stdout.trim();
-  return { ok: true, voice: /([a-z]{2}-[A-Z]{2}-[\w-]+)/i.exec(written)?.[1] ?? voice };
+  return { ok: true, voice: /([\w -]+)/i.exec(written)?.[1] ?? voice };
 }

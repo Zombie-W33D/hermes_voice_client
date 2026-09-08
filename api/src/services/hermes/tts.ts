@@ -3,6 +3,37 @@ import { spawn } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import { HERMES_HOME } from './paths';
+import { xttsSynthesize } from './xttsDaemon';
+
+/**
+ * Synthesize a custom (XTTS-cloned) voice from a reference audio sample.
+ * Uses Coqui TTS (`TTS==0.22.0`, which works with the system torch 2.4.1).
+ * The reference wav is stored under `~/.hermes/client_voices/<name>/ref.wav`.
+ * Returns a base64 data URL for in-memory browser playback (file deleted
+ * after streaming, matching the edge path).
+ */
+export async function synthesizeCustomSpeechToDataUrl(
+  text: string,
+  refWav: string
+): Promise<{ ok: true; dataUrl: string; mimeType: string } | { ok: false; error: string }> {
+  const trimmed = text.trim();
+  if (!trimmed) return { ok: false, error: 'Text is required' };
+  if (!fs.existsSync(refWav)) return { ok: false, error: `Reference audio not found: ${refWav}` };
+
+  const synth = await xttsSynthesize(trimmed, refWav);
+  if (!synth.ok) return { ok: false, error: synth.error };
+  if (!synth.out || !fs.existsSync(synth.out)) return { ok: false, error: 'XTTS produced no audio file' };
+
+  try {
+    const dataUrl = `data:audio/wav;base64,${fs.readFileSync(synth.out).toString('base64')}`;
+    fs.unlink(synth.out, () => {
+      /* best-effort cleanup */
+    });
+    return { ok: true, dataUrl, mimeType: 'audio/wav' };
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+}
 
 /**
  * Synthesize speech for a profile using Hermes' own TTS tooling
