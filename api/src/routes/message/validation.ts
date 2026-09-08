@@ -22,4 +22,9 @@ export default {
       return true;
     }),
   ]),
+
+  speak: validate([
+    body('conversationId').isInt().withMessage('Please provide a valid conversation id'),
+    body('text').notEmpty().withMessage('Please enter text to speak'),
+  ]),
 };

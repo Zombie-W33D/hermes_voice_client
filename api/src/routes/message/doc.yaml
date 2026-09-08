@@ -194,6 +194,49 @@ paths:
           $ref: '#/components/responses/401'
         500:
           $ref: '#/components/responses/500'
+  /message/speak:
+    post:
+      tags:
+        - message
+      security:
+        - bearerAuth: []
+      operationId: speakMessage
+      summary: Synthesize reply text into audio (base64 data URL)
+      description: >
+        Runs the given text through the conversation's profile TTS (Hermes'
+        `text_to_speech_tool`, so the profile's `tts` config is honoured) and
+        returns a base64 data URL the chat UI can play on the device's speaker.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/speakReqBody'
+      responses:
+        200:
+          description: Synthesized audio as a base64 data URL
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/speakResponse'
+        404:
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
+        502:
+          description: TTS synthesis failed (profile, provider, or network)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error:
+                    type: string
   /message/{id}:
     delete:
       tags:
@@ -340,6 +383,32 @@ components:
           type: integer
           description: Number of new messages imported from the JSONL session file
     #
+    speakReqBody:
+      type: object
+      required:
+        - conversationId
+        - text
+      properties:
+        conversationId:
+          type: integer
+          description: The conversation whose profile should synthesize the speech.
+        text:
+          type: string
+          description: The reply text to turn into audio.
+
+    speakResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+          description: Whether synthesis succeeded.
+        dataUrl:
+          type: string
+          description: Base64 data URL (`data:<mime>;base64,…`) of the synthesized audio.
+        mimeType:
+          type: string
+          description: Audio MIME type (e.g. `audio/mpeg`).
+
     chatReqBody:
       type: object
       required:

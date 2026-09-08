@@ -356,4 +356,29 @@ const serveImage: RequestHandler<never, unknown, never, { path?: string }> = asy
   }
 };
 
-export { listByConversation, create, chat, destroy, poll, serveUpload, serveImage };
+/**
+ * Synthesize a text reply into audio using the same Hermes TTS tooling the
+ * dashboard voice mode uses (profile-scoped), and return it as a base64 data
+ * URL so the chat web UI can play the response on the device's speaker.
+ */
+const speak: RequestHandler<never, unknown, { conversationId?: string; text?: string }, never> =
+  async (req, res, next) => {
+    try {
+      const { conversationId, text } = req.body;
+      const convRepo = AppDataSource.getRepository(Conversation);
+      const agentRepo = AppDataSource.getRepository(Agent);
+
+      const conv = await convRepo.findOneBy({ _id: Number(conversationId) });
+      if (!conv) return res.status(404).json({ error: 'Conversation not found' });
+      const agent = await agentRepo.findOneBy({ _id: conv.agentId });
+      const profile = agent?.hermesProfile || 'default';
+
+      const result = await hermes.synthesizeSpeechToDataUrl(text || '', profile);
+      if (!result.ok) return res.status(502).json({ error: result.error });
+      return res.json(result);
+    } catch (error) {
+      return next(error);
+    }
+  };
+
+export { listByConversation, create, chat, destroy, poll, serveUpload, serveImage, speak };

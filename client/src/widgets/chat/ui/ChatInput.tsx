@@ -6,14 +6,23 @@ import {
   Close,
   InsertDriveFileOutlined,
   ImageOutlined,
+  VolumeUp,
+  VolumeOff,
 } from '@mui/icons-material';
 
 interface ChatInputProps {
   onSend: (text: string, files: File[]) => Promise<void>;
   isStreaming: boolean;
+  speakRepliesEnabled: boolean;
+  onToggleSpeakReplies: () => void;
 }
 
-export default function ChatInput({ onSend, isStreaming }: ChatInputProps) {
+export default function ChatInput({
+  onSend,
+  isStreaming,
+  speakRepliesEnabled,
+  onToggleSpeakReplies,
+}: ChatInputProps) {
   const [text, setText] = useState('');
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -103,6 +112,18 @@ export default function ChatInput({ onSend, isStreaming }: ChatInputProps) {
           sx={{ mr: 0.5, color: 'text.secondary', '&:hover': { color: 'primary.main' } }}
         >
           <AttachFile sx={{ fontSize: 18 }} />
+        </IconButton>
+        <IconButton
+          onClick={onToggleSpeakReplies}
+          size="small"
+          sx={{
+            mr: 0.5,
+            color: speakRepliesEnabled ? 'primary.main' : 'text.secondary',
+            '&:hover': { color: 'primary.main' },
+          }}
+          title={speakRepliesEnabled ? 'Disable spoken replies' : 'Enable spoken replies'}
+        >
+          {speakRepliesEnabled ? <VolumeUp sx={{ fontSize: 18 }} /> : <VolumeOff sx={{ fontSize: 18 }} />}
         </IconButton>
         <TextField
           inputRef={inputRef}

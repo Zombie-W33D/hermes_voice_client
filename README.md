@@ -4,6 +4,8 @@ A web-based chat interface for the [Hermes Agent](https://hermes-agent.nousresea
 
 https://github.com/user-attachments/assets/88351710-65c9-4052-bdca-7be3d788b7f0
 
+> **Fork notice** — this repository is a fork of [lotsoftick/hermes_client](https://github.com/lotsoftick/hermes_client), which remains the true source of this codebase. Speak-back voice support, described below, is the only addition over upstream; all other functionality and credit belongs to the original author (copyright © 2026 Davit Hakobyan, MIT License).
+
 ## Features
 
 - **Multi-agent via Hermes profiles** — every UI "agent" maps 1:1 to a Hermes [profile](https://hermes-agent.nousresearch.com/docs/user-guide/profiles), each with its own home directory, config, and sessions. Add, rename, and delete profiles from the UI; the corresponding `hermes profile …` commands run under the hood.
@@ -14,6 +16,7 @@ https://github.com/user-attachments/assets/88351710-65c9-4052-bdca-7be3d788b7f0
 - **File uploads** — drag files into the composer; they're stored under `~/.hermes_client/uploads/<conversationId>/` and Hermes is invoked with absolute paths via `--image` (for images) or referenced inline in the prompt (for everything else).
 - **Cron, skills, plugins** — surface Hermes' `cron`, `skills list`, and `plugins list/enable/disable` subcommands through the same UI shell.
 - **User authentication** — JWT-based auth with a default admin account created on first run.
+- **Speak-back voice (this fork's addition)** — a platform-independent voice solution for hearing agent responses aloud. Reply text is synthesized through the agent's own Hermes profile TTS (via `POST /api/message/speak`) into a base64 audio data URL, and the recording is autoplayed on the triggering device/instance only. Archive definition: no audio files are persisted — the temp MP3 is deleted server-side as soon as it's streamed to the browser, and other devices/sessions never trigger synthesis. **Off by default and per-agent**: only the agent you enable the input-bar volume toggle for reads replies aloud.
 - **Theming** — built-in color themes with a sidebar picker; the interactive terminal inherits the active theme's sidebar palette.
 - **Installable PWA** — runs as a standalone desktop/mobile app via the browser's "Install app" feature.
 

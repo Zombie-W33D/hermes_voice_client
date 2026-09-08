@@ -5,6 +5,7 @@ import { useGetMessagesQuery, type MessageFile } from '../../../../entities/mess
 
 interface UseSendMessageArgs {
   conversationId: string | undefined;
+  agentId: string | undefined;
   refetch: ReturnType<typeof useGetMessagesQuery>['refetch'];
   hasMessages: boolean;
 }
@@ -30,6 +31,23 @@ export interface SendMessageState {
   send: (text: string, files: File[]) => Promise<void>;
   abort: () => void;
   clearError: () => void;
+  speakRepliesEnabled: boolean;
+  toggleSpeakReplies: () => void;
+}
+
+const SPEAK_REPLIES_KEY = 'hermes_client.speakReplies';
+
+/** Per-agent setting so only the agent you're working with speaks. */
+function speakRepliesKey(agentId: string | undefined): string {
+  return agentId ? `${SPEAK_REPLIES_KEY}:agent:${agentId}` : SPEAK_REPLIES_KEY;
+}
+
+function loadSpeakRepliesSetting(agentId: string | undefined): boolean {
+  try {
+    return localStorage.getItem(speakRepliesKey(agentId)) === '1';
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -38,6 +56,7 @@ export interface SendMessageState {
  */
 export function useSendMessage({
   conversationId,
+  agentId,
   refetch,
   hasMessages,
 }: UseSendMessageArgs): SendMessageState {
@@ -48,6 +67,7 @@ export function useSendMessage({
   const [isStreaming, setIsStreaming] = useState(false);
   const [pendingUserText, setPendingUserText] = useState('');
   const [pendingFilesPreviews, setPendingFilesPreviews] = useState<MessageFile[]>([]);
+  const [speakRepliesEnabled, setSpeakRepliesEnabled] = useState(() => loadSpeakRepliesSetting(agentId));
 
   const abortRef = useRef<AbortController | null>(null);
   const dispatch = useAppDispatch();
@@ -58,6 +78,46 @@ export function useSendMessage({
   }, []);
 
   const clearError = useCallback(() => setStreamError(null), []);
+
+  const toggleSpeakReplies = useCallback(() => {
+    setSpeakRepliesEnabled((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem(speakRepliesKey(agentId), next ? '1' : '0');
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, [agentId]);
+
+  /** Synthesize + play the assistant reply through the speak endpoint. */
+  const speakReply = useCallback(
+    async (conversationId: string, text: string) => {
+      if (!text.trim() || !speakRepliesEnabled) return;
+      const token = localStorage.getItem('token');
+      try {
+        const res = await fetch(`${API_BASE_URL}/message/speak`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ conversationId, text }),
+        });
+        if (!res.ok) return;
+        const body = await res.json();
+        if (!body?.dataUrl) return;
+        const audio = new Audio(body.dataUrl);
+        audio.play().catch(() => {
+          /* autoplay may be blocked — ignore */
+        });
+      } catch {
+        /* speaking is best-effort */
+      }
+    },
+    [speakRepliesEnabled]
+  );
 
   const send = useCallback(
     async (text: string, files: File[]) => {
@@ -175,6 +235,7 @@ export function useSendMessage({
         if (!hasMessages) {
           dispatch(baseApi.util.invalidateTags(['Conversation']));
         }
+        await speakReply(conversationId, accText);
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Stream error:', err);
@@ -192,7 +253,7 @@ export function useSendMessage({
         abortRef.current = null;
       }
     },
-    [conversationId, isStreaming, refetch, dispatch, hasMessages]
+    [conversationId, isStreaming, refetch, dispatch, hasMessages, speakReply]
   );
 
   return {
@@ -206,5 +267,7 @@ export function useSendMessage({
     send,
     abort,
     clearError,
+    speakRepliesEnabled,
+    toggleSpeakReplies,
   };
 }

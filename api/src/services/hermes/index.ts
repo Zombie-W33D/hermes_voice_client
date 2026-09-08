@@ -14,3 +14,4 @@ export * from './cron';
 export * from './gateway';
 export * from './insights';
 export * from './uploads';
+export { default as synthesizeSpeechToDataUrl } from './tts';

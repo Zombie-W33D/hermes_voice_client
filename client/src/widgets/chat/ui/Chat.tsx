@@ -17,7 +17,7 @@ interface ChatProps {
  */
 export default function Chat({ agentId, conversationId }: ChatProps) {
   const [showSessionSettings, setShowSessionSettings] = useState(false);
-  const chat = useChat(conversationId);
+  const chat = useChat(conversationId, agentId);
 
   return (
     <Box
@@ -40,7 +40,12 @@ export default function Chat({ agentId, conversationId }: ChatProps) {
         <SessionSettingsBar agentId={agentId} conversationId={conversationId} />
       )}
       <MessageList chat={chat} />
-      <ChatInput onSend={chat.send} isStreaming={chat.isStreaming} />
+      <ChatInput
+        onSend={chat.send}
+        isStreaming={chat.isStreaming}
+        speakRepliesEnabled={chat.speakRepliesEnabled}
+        onToggleSpeakReplies={chat.toggleSpeakReplies}
+      />
     </Box>
   );
 }

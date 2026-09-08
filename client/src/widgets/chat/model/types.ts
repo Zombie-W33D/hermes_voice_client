@@ -22,6 +22,9 @@ export interface ChatState {
   handleScroll: () => void;
   clearError: () => void;
 
+  speakRepliesEnabled: boolean;
+  toggleSpeakReplies: () => void;
+
   scrollContainerRef: RefObject<HTMLDivElement | null>;
   messagesEndRef: RefObject<HTMLDivElement | null>;
 }

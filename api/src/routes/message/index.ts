@@ -29,6 +29,7 @@ router.route('/message/image').get(auth, controller.serveImage);
 
 router.route('/message').post(auth, validate.create, controller.create);
 router.route('/message/chat').post(auth, upload.array('files', 5), validate.chat, controller.chat);
+router.route('/message/speak').post(auth, validate.speak, controller.speak);
 router.route('/message/:id(\\d+)').delete(auth, validate.id, controller.destroy);
 
 router.route('/conversation/:conversationId(\\d+)/uploads/:filename').get(auth, controller.serveUpload);

@@ -16,7 +16,7 @@ const POLL_INTERVAL_MS = 5000;
  * Composes message querying, polling, scroll behavior, and send-message state
  * into a single `ChatState` consumed by the chat widget.
  */
-export function useChat(conversationId: string | undefined): ChatState {
+export function useChat(conversationId: string | undefined, agentId: string | undefined): ChatState {
   const [loadMoreCursor, setLoadMoreCursor] = useState<string | undefined>();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -49,8 +49,11 @@ export function useChat(conversationId: string | undefined): ChatState {
     send,
     abort,
     clearError,
+    speakRepliesEnabled,
+    toggleSpeakReplies,
   } = useSendMessage({
     conversationId,
+    agentId,
     refetch,
     hasMessages: messages.length > 0,
   });
@@ -188,6 +191,8 @@ export function useChat(conversationId: string | undefined): ChatState {
     loadMore,
     handleScroll,
     clearError,
+    speakRepliesEnabled,
+    toggleSpeakReplies,
     scrollContainerRef,
     messagesEndRef,
   };
