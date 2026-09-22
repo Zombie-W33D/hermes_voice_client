@@ -6,11 +6,11 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "https://github.com/lotsoftick/hermes_client.git"
+    "url": "https://github.com/Zombie-W33D/hermes_voice_client.git"
   },
-  "homepage": "https://github.com/lotsoftick/hermes_client#readme",
+  "homepage": "https://github.com/Zombie-W33D/hermes_voice_client#readme",
   "bugs": {
-    "url": "https://github.com/lotsoftick/hermes_client/issues"
+    "url": "https://github.com/Zombie-W33D/hermes_voice_client/issues"
   },
   "scripts": {
     "setup": "node scripts/setup.js",
